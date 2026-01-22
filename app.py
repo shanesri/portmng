@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime, timedelta
 
 # Page Config
 st.set_page_config(page_title="Shane's Macro Engine", layout="wide")
@@ -36,7 +37,7 @@ if st.session_state.tickers_ready:
         st.subheader("Step 2: Assign Weights (%)")
         weights = []
         for ticker in tickers:
-            w = st.number_input(f"Weight for {ticker} (%)", min_value=0.0, max_value=100.0, value=100.0/len(tickers))
+            w = st.number_input(f"Weight for {ticker} (%)", min_value=0.0, max_value=100.0, value=100.0/len(tickers), key=f"w_{ticker}")
             weights.append(w / 100.0)
         
         total_w = sum(weights)
@@ -47,7 +48,14 @@ if st.session_state.tickers_ready:
         st.subheader("Step 3: Simulation Settings")
         initial_investment = st.number_input("Initial Investment ($)", value=100, step=100)
         simulations = st.number_input("Number of Simulations", value=1000, step=100)
-        time_horizon = st.number_input("Time Horizon (Days)", value=252, step=1)
+        time_horizon = st.number_input("Time Horizon (Days to Forecast)", value=252, step=1)
+        
+        # Date range for historical data
+        d_col1, d_col2 = st.columns(2)
+        with d_col1:
+            start_date = st.date_input("Data Start Date", value=datetime.now() - timedelta(days=365*3))
+        with d_col2:
+            end_date = st.date_input("Data End Date", value=datetime.now())
 
     st.markdown("---")
     
@@ -56,7 +64,12 @@ if st.session_state.tickers_ready:
         try:
             with st.spinner("Processing Market Data..."):
                 # Download Data
-                data = yf.download(tickers, start="2021-01-01")['Close']
+                data = yf.download(tickers, start=start_date, end=end_date)['Close']
+                
+                # Handling possible multi-level columns from yfinance
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = data.columns.get_level_values(0)
+                
                 returns = data.pct_change().dropna()
                 
                 # DNA Calculations
@@ -65,7 +78,7 @@ if st.session_state.tickers_ready:
                 
                 # Show Covariance Matrix
                 st.subheader("🧬 Asset Covariance (The Macro Map)")
-                fig_cov, ax_cov = plt.subplots(figsize=(10, 5))
+                fig_cov, ax_cov = plt.subplots(figsize=(10, 4))
                 sns.heatmap(cov_matrix, annot=True, cmap='Blues', ax=ax_cov)
                 st.pyplot(fig_cov)
 
@@ -76,6 +89,7 @@ if st.session_state.tickers_ready:
                 for i in range(simulations):
                     Z = np.random.normal(size=(time_horizon, len(tickers)))
                     daily_returns = avg_returns.values + np.dot(Z, L.T)
+                    # Compounding the growth
                     portfolio_path = np.cumprod(np.dot(daily_returns, weights) + 1) * initial_investment
                     portfolio_sims[:, i] = portfolio_path
 
@@ -83,13 +97,10 @@ if st.session_state.tickers_ready:
                 st.markdown("---")
                 st.subheader(f"📈 Monte Carlo: {simulations} Possible Realities")
                 
-                # Path Chart
-                fig_paths, ax_paths = plt.subplots(figsize=(12, 6))
-                ax_paths.plot(portfolio_sims, color='blue', alpha=0.03)
-                ax_paths.axhline(initial_investment, color='red', linestyle='--', label="Break Even")
-                ax_paths.set_xlabel("Days")
-                ax_paths.set_ylabel("Portfolio Value ($)")
-                st.pyplot(fig_paths)
+                # Streamlit Native Line Chart (Much cleaner!)
+                # We convert to DataFrame so Streamlit handles the axes nicely
+                sim_df = pd.DataFrame(portfolio_sims)
+                st.line_chart(sim_df)
 
                 # Final Metrics
                 final_values = portfolio_sims[-1, :]
@@ -103,11 +114,13 @@ if st.session_state.tickers_ready:
 
                 # Distribution
                 st.subheader("📊 Distribution of Outcomes")
-                fig_hist, ax_hist = plt.subplots(figsize=(12, 5))
-                ax_hist.hist(final_values, bins=50, color='skyblue', edgecolor='black')
+                fig_hist, ax_hist = plt.subplots(figsize=(12, 4))
+                ax_hist.hist(final_values, bins=50, color='skyblue', edgecolor='black', alpha=0.7)
                 ax_hist.axvline(initial_investment, color='red', linestyle='--', label='Initial')
                 ax_hist.axvline(pct_5th, color='orange', linestyle='--', label='VaR')
+                ax_hist.set_title("Terminal Wealth Distribution")
+                ax_hist.legend()
                 st.pyplot(fig_hist)
 
         except Exception as e:
-            st.error(f"Error: {e}. Check if tickers are valid for the selected date range.")
+            st.error(f"Error: {e}. Check if tickers are valid and if there's enough data for your date range.")
