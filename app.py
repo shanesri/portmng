@@ -95,12 +95,33 @@ if st.session_state.tickers_ready:
 
                 # Visuals & Stats
                 st.markdown("---")
-                st.subheader(f"📈 Monte Carlo: {simulations} Possible Realities")
+                st.subheader(f"📈 Portfolio Simulation: Decile Fan Chart")
                 
-                # Streamlit Native Line Chart (Much cleaner!)
-                # We convert to DataFrame so Streamlit handles the axes nicely
-                sim_df = pd.DataFrame(portfolio_sims)
-                st.line_chart(sim_df)
+                # --- Percentile Calculation for Fan Chart ---
+                # We calculate percentiles at each time step (row)
+                percentiles = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+                p_data = np.percentile(portfolio_sims, percentiles, axis=1) # Shape (len(percentiles), time_horizon)
+                
+                fig_fan, ax_fan = plt.subplots(figsize=(12, 6))
+                time_range = np.arange(time_horizon)
+                
+                # Plot the fill between layers
+                for i in range(len(percentiles) // 2):
+                    low_idx = i
+                    high_idx = len(percentiles) - 1 - i
+                    # Alpha gets stronger towards the 50th percentile
+                    alpha_val = 0.1 + (i * 0.1) 
+                    ax_fan.fill_between(time_range, p_data[low_idx], p_data[high_idx], 
+                                        color='blue', alpha=alpha_val, label=f'{percentiles[low_idx]}-{percentiles[high_idx]}%')
+
+                # Highlight the Median (50th percentile)
+                ax_fan.plot(time_range, p_data[5], color='darkblue', linewidth=2, label='Median (50th)')
+                
+                ax_fan.axhline(initial_investment, color='red', linestyle='--', label="Break Even")
+                ax_fan.set_xlabel("Days")
+                ax_fan.set_ylabel("Portfolio Value ($)")
+                ax_fan.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='small')
+                st.pyplot(fig_fan)
 
                 # Final Metrics
                 final_values = portfolio_sims[-1, :]
