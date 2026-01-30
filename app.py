@@ -34,8 +34,16 @@ st.markdown(
         margin-bottom: 5px;
         font-weight: 500;
         color: #8b949e;
+        font-size: 16px;
     }
     
+    .nav-item a {
+        color: inherit;
+        text-decoration: none;
+        display: block;
+        width: 100%;
+    }
+
     .nav-active {
         background-color: #1f2937;
         color: #ffffff !important;
@@ -127,15 +135,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Sidebar Navigation ---
+# --- Sidebar ---
 with st.sidebar:
-    st.title("Macro Terminal")
-    st.markdown('<div class="nav-item">👋 Greeting</div>', unsafe_allow_html=True)
+    st.title("Navigation")
+    st.markdown('<div class="nav-item"><a href="/greeting" target="_self">👋 Greeting</a></div>', unsafe_allow_html=True)
     st.markdown('<div class="nav-item nav-active">📊 Monte Carlo Simulation</div>', unsafe_allow_html=True)
-    st.markdown('<div class="nav-item">🗺️ Road map</div>', unsafe_allow_html=True)
-    
-    st.divider()
-    st.markdown("### [🔗 Creator Info](https://shanesri.com)")
+    # matched Creator Info size and style
+    st.markdown('<div class="nav-item"><a href="https://shanesri.com" target="_blank">🔗 Creator Info</a></div>', unsafe_allow_html=True)
 
 # --- Helper to get Ticker Names ---
 @st.cache_data
@@ -209,7 +215,8 @@ if st.session_state.tickers_list:
                     st.rerun()
         with btn_col2:
             if st.button("🔄 Reset All to 0%", use_container_width=True):
-                for t in tickers: st.session_state[f"w_val_{t}"] = 0.0
+                for t in tickers:
+                    st.session_state[f"w_val_{t}"] = 0.0
                 st.rerun()
         
         df_data = []
@@ -300,7 +307,8 @@ if st.session_state.tickers_list:
         def get_delta_html(current, base):
             delta_pct = ((current - base) / base) * 100
             color_class = "delta-gain" if delta_pct > 0 else "delta-loss" if delta_pct < 0 else "delta-neutral"
-            return f'<div class="metric-delta {color_class}">({"+" if delta_pct > 0 else ""}{delta_pct:.2f}%)</div>'
+            sign = "+" if delta_pct > 0 else ""
+            return f'<div class="metric-delta {color_class}">({sign}{delta_pct:.2f}%)</div>'
 
         c_res1, c_res2, c_res3 = st.columns(3)
         with c_res1: st.markdown(f'<div class="metric-card"><div class="metric-label">Median Final Value</div><div class="metric-value">${med_final:,.0f}</div>{get_delta_html(med_final, initial_inv)}</div>', unsafe_allow_html=True)
@@ -387,6 +395,6 @@ if st.session_state.tickers_list:
             st.subheader("Asset Correlation Matrix")
             if st.session_state.sim_returns_data is not None:
                 corr_matrix = st.session_state.sim_returns_data.pct_change().corr()
-                styled_corr = corr_matrix.style.background_gradient(cmap='RdBu_r', axis=None, vmin=-1, vmax=1).format("{:.2f}")
+                styled_corr = correlation_matrix_styled = corr_matrix.style.background_gradient(cmap='RdBu_r', axis=None, vmin=-1, vmax=1).format("{:.2f}")
                 st.dataframe(styled_corr, use_container_width=True)
 else: st.info("Add some tickers to start.")
