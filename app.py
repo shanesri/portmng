@@ -138,9 +138,9 @@ st.markdown(
 # --- Sidebar ---
 with st.sidebar:
     st.title("Navigation")
-    st.markdown('<div class="nav-item"><a href="/greeting" target="_self">👋 Greeting</a></div>', unsafe_allow_html=True)
+    # Updated to your live greeting URL
+    st.markdown('<div class="nav-item"><a href="https://shanegreeting.streamlit.app/" target="_blank">👋 Greeting</a></div>', unsafe_allow_html=True)
     st.markdown('<div class="nav-item nav-active">📊 Monte Carlo Simulation</div>', unsafe_allow_html=True)
-    # matched Creator Info size and style
     st.markdown('<div class="nav-item"><a href="https://shanesri.com" target="_blank">🔗 Creator Info</a></div>', unsafe_allow_html=True)
 
 # --- Helper to get Ticker Names ---
@@ -160,7 +160,7 @@ preset_tickers = {
     'VTI': 30.0,
     'TLT': 40.0,
     'IEF': 15.0,
-    'AAPL': 7.5,
+    'GLD': 7.5, # Reverted back to GLD from AAPL
     'PDBC': 7.5
 }
 
@@ -186,11 +186,12 @@ if 'sim_days' not in st.session_state:
 st.title("🎲 Monte Carlo Portfolio Simulator")
 st.markdown("Predicting future portfolio outcomes based on historical volatility and correlations.")
 
-# --- Section 1: Configuration ---
+# --- Section 1: Asset Configuration ---
 st.header("1. Asset Configuration")
 col_input, col_add = st.columns([3, 1])
 with col_input:
-    new_ticker = st.text_input("Add Ticker", placeholder="Try GLD", key="ticker_input", label_visibility="collapsed").strip().upper()
+    # Changed placeholder to "Try AAPL"
+    new_ticker = st.text_input("Add Ticker", placeholder="Try AAPL", key="ticker_input", label_visibility="collapsed").strip().upper()
 
 with col_add:
     if st.button("Add Ticker", use_container_width=True):
@@ -280,9 +281,8 @@ if st.session_state.tickers_list:
                 data = raw_data['Close'] if isinstance(raw_data.columns, pd.MultiIndex) else raw_data[['Close']]
                 log_returns = np.log(data / data.shift(1)).dropna()
                 weights = np.array(active_weights) / 100.0
-                mean_returns, cov_matrix = log_returns.mean(), log_returns.cov()
-                L = np.linalg.cholesky(cov_matrix)
-                drift = mean_returns.values - 0.5 * np.diag(cov_matrix.values)
+                L = np.linalg.cholesky(log_returns.cov())
+                drift = log_returns.mean().values - 0.5 * np.diag(log_returns.cov().values)
                 portfolio_sims = np.zeros((time_horizon, simulations))
                 for i in range(simulations):
                     Z = np.random.normal(size=(time_horizon, len(weights)))
@@ -360,7 +360,7 @@ if st.session_state.tickers_list:
         with col_success_card:
             st.markdown(f'<div class="metric-card success-card"><div class="metric-label">Probability of Success</div><div class="metric-value">{success_rate:.1f}%</div><div class="metric-delta">Above ${target_amount:,.0f}</div></div>', unsafe_allow_html=True)
 
-        # --- VaR & CVaR Analysis ---
+        # --- Risk Metrics ---
         st.divider()
         st.header("4. Risk Metrics")
         st.subheader("🛡️ Tail Risk Analysis")
@@ -395,6 +395,6 @@ if st.session_state.tickers_list:
             st.subheader("Asset Correlation Matrix")
             if st.session_state.sim_returns_data is not None:
                 corr_matrix = st.session_state.sim_returns_data.pct_change().corr()
-                styled_corr = correlation_matrix_styled = corr_matrix.style.background_gradient(cmap='RdBu_r', axis=None, vmin=-1, vmax=1).format("{:.2f}")
+                styled_corr = corr_matrix.style.background_gradient(cmap='RdBu_r', axis=None, vmin=-1, vmax=1).format("{:.2f}")
                 st.dataframe(styled_corr, use_container_width=True)
 else: st.info("Add some tickers to start.")
