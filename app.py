@@ -138,7 +138,6 @@ st.markdown(
 # --- Sidebar ---
 with st.sidebar:
     st.title("Navigation")
-    # Updated to your live greeting URL
     st.markdown('<div class="nav-item"><a href="https://shanegreeting.streamlit.app/" target="_blank">👋 Greeting</a></div>', unsafe_allow_html=True)
     st.markdown('<div class="nav-item nav-active">📊 Monte Carlo Simulation</div>', unsafe_allow_html=True)
     st.markdown('<div class="nav-item"><a href="https://shanesri.com" target="_blank">🔗 Creator Info</a></div>', unsafe_allow_html=True)
@@ -149,6 +148,7 @@ def get_ticker_info(ticker_list):
     info_map = {}
     for t in ticker_list:
         try:
+            # Fetching shortName to ensure we get the full asset title
             name = yf.Ticker(t).info.get('shortName', t)
             info_map[t] = name
         except:
@@ -160,7 +160,7 @@ preset_tickers = {
     'VTI': 30.0,
     'TLT': 40.0,
     'IEF': 15.0,
-    'GLD': 7.5, # Reverted back to GLD from AAPL
+    'GLD': 7.5,
     'PDBC': 7.5
 }
 
@@ -190,7 +190,6 @@ st.markdown("Predicting future portfolio outcomes based on historical volatility
 st.header("1. Asset Configuration")
 col_input, col_add = st.columns([3, 1])
 with col_input:
-    # Changed placeholder to "Try AAPL"
     new_ticker = st.text_input("Add Ticker", placeholder="Try AAPL", key="ticker_input", label_visibility="collapsed").strip().upper()
 
 with col_add:
@@ -277,12 +276,15 @@ if st.session_state.tickers_list:
             end_date = datetime.now()
             start_date = end_date - timedelta(days=lookback_years * 365)
             try:
-                raw_data = yf.download(active_tickers, start=start_date, end=end_date)
+                # auto_adjust=True ensures we get dividend-adjusted close prices
+                raw_data = yf.download(active_tickers, start=start_date, end=end_date, auto_adjust=True)
                 data = raw_data['Close'] if isinstance(raw_data.columns, pd.MultiIndex) else raw_data[['Close']]
+                
                 log_returns = np.log(data / data.shift(1)).dropna()
                 weights = np.array(active_weights) / 100.0
                 L = np.linalg.cholesky(log_returns.cov())
                 drift = log_returns.mean().values - 0.5 * np.diag(log_returns.cov().values)
+                
                 portfolio_sims = np.zeros((time_horizon, simulations))
                 for i in range(simulations):
                     Z = np.random.normal(size=(time_horizon, len(weights)))
@@ -324,9 +326,9 @@ if st.session_state.tickers_list:
 
         st.write("")
         col_paths_header, col_reroll = st.columns([3, 1])
-        with col_paths_header: st.subheader("Simulated Performance Paths (50 Random Realities)")
+        with col_paths_header: st.subheader("Visualize Sample Paths")
         with col_reroll:
-            if st.button("🎲 Reroll Realities", use_container_width=True): st.rerun()
+            if st.button("🎲 Reroll Sample", use_container_width=True): st.rerun()
 
         days = np.arange(portfolio_sims.shape[0])
         num_to_display = min(portfolio_sims.shape[1], 50)
